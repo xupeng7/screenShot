@@ -11,8 +11,14 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.math.BigInteger;
 
 public class ImageListener extends FileAlterationListenerAdaptor {
+    /*
+        private static int a = 0;
+        private static int b = 0;*/
+    //表示第一次进来
+    private static boolean isFirst = true;
 
 
     public static String Reportname = "gsqxjb_risk_zyt_road";
@@ -24,24 +30,6 @@ public class ImageListener extends FileAlterationListenerAdaptor {
     public ImageListener(File dirContext) {
         super();
         DirContext = dirContext;
-    }
-
-    //文件夹创建
-    @Override
-    public void onDirectoryCreate(File directory) {
-        System.out.println(directory.getName() + "  |  文件夹被创建" + "  |  路径为：" + directory.getPath());
-    }
-
-    //文件夹改变
-    @Override
-    public void onDirectoryChange(File directory) {
-        System.out.println(directory.getName() + "  |  文件夹被改变" + "  |   路径为：" + directory.getPath());
-    }
-
-    //文件夹删除
-    @Override
-    public void onDirectoryDelete(File directory) {
-        System.out.println(directory.getName() + "  |  文件夹被删除" + "  |   路径为：" + directory.getPath());
     }
 
     //文件创建
@@ -67,7 +55,39 @@ public class ImageListener extends FileAlterationListenerAdaptor {
         }
         //getImagePixel("E:\\test.png");
         try {
-            getImagePixel("E:\\screenShot\\" + file.getName());
+            System.out.println("文件名" + file.getName().substring(0, 8));
+            //todo 也可以不用bigInteager 取到上次截屏的文件名 然后转为int -5 之后再转为string
+            System.out.println("相减之后" + new BigInteger(file.getName().substring(0, 8)).subtract(new BigInteger("5")));
+            String lastFileName = String.valueOf(new BigInteger(file.getName().substring(0, 8)).subtract(new BigInteger("5")));
+            File lastFile = new File("E://screenShot/" + lastFileName + ".png");
+            String fileMD5 = FileMD5Uitl.getFileMD5(file);
+            String fileMD52 = FileMD5Uitl.getFileMD5(lastFile);
+            System.out.println(file.getName() + " 的MD5值是：" + fileMD5);
+            System.out.println(lastFile.getName() + " 的MD5值是：" + fileMD52);
+
+            if (fileMD5.equals(fileMD52)) {
+                System.out.println("两张图片一致..");
+            } else {
+                System.out.println("两张图片不一致...");
+            }
+
+            //不管图片是否一致 都将画面中全部的红蓝点个数都数出来
+            getImagePixel("E:\\screenShot\\" + file.getName(), false);
+
+            //todo 暂时未解决红蓝点新增时累加的问题,可能是向下加,可能是像左移动来加.无法判断是哪一种加法
+            /* //如果是第一次
+            if (isFirst){
+                System.out.println("第一次数,将全部个数数出来");
+                getImagePixel("E:\\screenShot\\" + file.getName(),false);
+                isFirst=false;
+            }else if (fileMD5.equals(fileMD52)){
+                System.out.println("两张图片一致..");
+                getImagePixel("E:\\screenShot\\" + file.getName(),false);
+            }else {
+                System.out.println("两张图片不一致...");
+                //umActive("E:\\screenShot\\" + file.getName());
+                getImagePixel("E:\\screenShot\\" + file.getName(),true);
+            }*/
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -75,20 +95,6 @@ public class ImageListener extends FileAlterationListenerAdaptor {
         System.out.println("总耗时" + (didTime - preTime) + "ms");
     }
 
-    //文件夹改变
-    @Override
-    public void onFileChange(File file) {
-        super.onFileChange(file);
-        System.out.println(file.getName() + "   |   文件被修改" + "  |   路径为：" + file.getPath());
-        traverseFolder2(DirContext.getPath(), file.getName());
-    }
-
-    //文件删除
-    @Override
-    public void onFileDelete(File file) {
-        super.onFileDelete(file);
-        System.out.println(file.getName() + " 文件被删除" + "    路径为：" + file.getPath());
-    }
 
     public void traverseFolder2(String path, String fileName) {
 
@@ -119,10 +125,11 @@ public class ImageListener extends FileAlterationListenerAdaptor {
 
     /**
      * 读取一张图片的RGB值
+     * flag 是true表示是读取后面新增的红蓝点数  false表示是第一次读取全部的个数
      *
      * @throws Exception
      */
-    public void getImagePixel(String image) throws Exception {
+    public void getImagePixel(String image, boolean flag) throws Exception {
         int[] rgb = new int[3];
         File file = new File(image);
         BufferedImage bi = null;
@@ -132,13 +139,270 @@ public class ImageListener extends FileAlterationListenerAdaptor {
             e.printStackTrace();
         }
 
-        int a = 0;
-        int b = 0;
-        //第一区域
+        // todo 未测试 如果图片中的红蓝点往左移动,那么只数最后一列的个数.这只能实现往左移动的累加,不能实现向下的累加
+        if (flag) {
+          /*  for (int h = 4; h < 255; h = h + 21) {
+                for (int w = 700; w < 845; w = w + 21) {
+                    int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
+                    rgb[0] = (pixel & 0xff0000) >> 16;
+                    rgb[1] = (pixel & 0xff00) >> 8;
+                    rgb[2] = (pixel & 0xff);
+                    if (w % 21 == 12) {
+                        if (rgb[0] < 175 && rgb[2] > 175) {
+                            a = a + 1;
+                        } else if (rgb[0] > 175 && rgb[2] < 175) {
+                            b = b + 1;
+                        }
+                    }
+                }
+            }
 
+            System.out.println("加上最新的蓝色总数" + a);
+            System.out.println("加上最新的红色总数" + b);
+            System.out.println(".................");*/
+        } else {
 
-        for (int h = 4; h < 127; h = h + 21) {
-            for (int w = 12; w < 600; w = w + 21) {
+            int a = 0;
+            int b = 0;
+            //第一区域
+            for (int h = 4; h < 127; h = h + 21) {
+                for (int w = 12; w < 600; w = w + 21) {
+                    int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
+                    rgb[0] = (pixel & 0xff0000) >> 16;
+                    rgb[1] = (pixel & 0xff00) >> 8;
+                    rgb[2] = (pixel & 0xff);
+                    if (w % 21 == 12) {
+                        if (rgb[0] < 175 && rgb[2] > 175) {
+                            a = a + 1;
+                        } else if (rgb[0] > 175 && rgb[2] < 175) {
+                            b = b + 1;
+                        }
+                    }
+                }
+            }
+            System.out.println("第一区域蓝色个数" + a);
+            System.out.println("第一区域红色个数" + b);
+            System.out.println(".................");
+            /////////////////////////////////////////////////////////////////////////////////
+            //第二区域测试 四个for循环
+
+            int blue2 = 0;
+            int red2 = 0;
+            for (int h = 128; h < 186; h = h + 21) {
+                for (int w = 6; w < 420; w = w + 21) {
+                    int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
+                    rgb[0] = (pixel & 0xff0000) >> 16;
+                    rgb[1] = (pixel & 0xff00) >> 8;
+                    rgb[2] = (pixel & 0xff);
+                    if (rgb[0] < 200 && rgb[2] > 175) {
+                        blue2++;
+                        a++;
+                    } else if (rgb[0] > 175 && rgb[2] < 175) {
+                        b++;
+                        red2++;
+                    }
+                }
+            }
+
+            for (int h = 128; h < 186; h = h + 21) {
+                for (int w = 16; w < 420; w = w + 21) {
+                    int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
+                    rgb[0] = (pixel & 0xff0000) >> 16;
+                    rgb[1] = (pixel & 0xff00) >> 8;
+                    rgb[2] = (pixel & 0xff);
+                    if (rgb[0] < 200 && rgb[2] > 175) {
+                        blue2++;
+                        a++;
+                    } else if (rgb[0] > 175 && rgb[2] < 175) {
+                        b++;
+                        red2++;
+                    }
+
+                }
+            }
+
+            for (int h = 138; h < 186; h = h + 21) {
+                for (int w = 6; w < 420; w = w + 21) {
+                    int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
+                    rgb[0] = (pixel & 0xff0000) >> 16;
+                    rgb[1] = (pixel & 0xff00) >> 8;
+                    rgb[2] = (pixel & 0xff);
+                    if (rgb[0] < 200 && rgb[2] > 175) {
+                        a++;
+                        blue2++;
+                    } else if (rgb[0] > 175 && rgb[2] < 175) {
+                        b++;
+                        red2++;
+                    }
+
+                }
+            }
+
+            for (int h = 138; h < 186; h = h + 21) {
+                for (int w = 16; w < 420; w = w + 21) {
+                    int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
+                    rgb[0] = (pixel & 0xff0000) >> 16;
+                    rgb[1] = (pixel & 0xff00) >> 8;
+                    rgb[2] = (pixel & 0xff);
+                    if (rgb[0] < 200 && rgb[2] > 175) {
+                        a++;
+                        blue2++;
+                    } else if (rgb[0] > 175 && rgb[2] < 175) {
+                        b++;
+                        red2++;
+
+                    }
+
+                }
+            }
+            System.out.println("第二区域蓝色个数" + blue2);
+            System.out.println("第二区域红色个数" + red2);
+            System.out.println(".................");
+
+            ////////////////////////////////////////////////////////////////////////////////////
+
+            // 第三区域 两次width 位置起点不同 间距一样的for循环 为了解决间隔是小数的问题
+            int blue3 = 0;
+            int red3 = 0;
+            for (int h = 194; h < 255; h = h + 10) {
+                for (int w = 6; w < 420; w = w + 21) {
+                    int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
+                    rgb[0] = (pixel & 0xff0000) >> 16;
+                    rgb[1] = (pixel & 0xff00) >> 8;
+                    rgb[2] = (pixel & 0xff);
+
+                    if (rgb[0] < 175 && rgb[2] > 175) {
+                        a++;
+                        blue3++;
+                    } else if (rgb[0] > 175 && rgb[2] < 175) {
+                        b++;
+                        red3++;
+                    }
+
+                }
+            }
+            for (int h = 194; h < 255; h = h + 10) {
+                for (int w = 16; w < 420; w = w + 21) {
+                    int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
+                    rgb[0] = (pixel & 0xff0000) >> 16;
+                    rgb[1] = (pixel & 0xff00) >> 8;
+                    rgb[2] = (pixel & 0xff);
+                    if (rgb[0] < 175 && rgb[2] > 175) {
+                        a++;
+                        blue3++;
+                    } else if (rgb[0] > 175 && rgb[2] < 175) {
+                        b++;
+                        red3++;
+                    }
+
+                }
+            }
+
+            System.out.println("第三区域蓝色个数" + blue3);
+            System.out.println("第三区域红色个数" + red3);
+            System.out.println(".................");
+            /////////////////////////////////////////////////////////////////////////////////////
+            //第四区域
+
+            int blue4 = 0;
+            int red4 = 0;
+
+            for (int h = 194; h < 255; h = h + 21) {
+                for (int w = 425; w < 570; w = w + 21) {
+                    int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
+                    rgb[0] = (pixel & 0xff0000) >> 16;
+                    rgb[1] = (pixel & 0xff00) >> 8;
+                    rgb[2] = (pixel & 0xff);
+                    if (rgb[0] < 200 && rgb[2] > 175) {
+                        a++;
+                        blue4++;
+                    } else if (rgb[0] > 175 && rgb[2] < 175) {
+                        b++;
+                        red4++;
+                    }
+
+                }
+            }
+
+            for (int h = 194; h < 255; h = h + 21) {
+                for (int w = 435; w < 570; w = w + 21) {
+                    int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
+                    rgb[0] = (pixel & 0xff0000) >> 16;
+                    rgb[1] = (pixel & 0xff00) >> 8;
+                    rgb[2] = (pixel & 0xff);
+                    if (rgb[0] < 200 && rgb[2] > 175) {
+                        a++;
+                        blue4++;
+                    } else if (rgb[0] > 175 && rgb[2] < 175) {
+
+                        b++;
+                        red4++;
+                    }
+
+                }
+            }
+
+            for (int h = 204; h < 255; h = h + 21) {
+                for (int w = 425; w < 570; w = w + 21) {
+                    int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
+                    rgb[0] = (pixel & 0xff0000) >> 16;
+                    rgb[1] = (pixel & 0xff00) >> 8;
+                    rgb[2] = (pixel & 0xff);
+
+                    if (rgb[0] < 200 && rgb[2] > 175) {
+                        a++;
+                        blue4++;
+                    } else if (rgb[0] > 175 && rgb[2] < 175) {
+                        b++;
+                        red4++;
+                    }
+
+                }
+            }
+
+            for (int h = 204; h < 255; h = h + 21) {
+                for (int w = 435; w < 570; w = w + 21) {
+                    int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
+                    rgb[0] = (pixel & 0xff0000) >> 16;
+                    rgb[1] = (pixel & 0xff00) >> 8;
+                    rgb[2] = (pixel & 0xff);
+
+                    if (rgb[0] < 200 && rgb[2] > 175) {
+                        a++;
+                        blue4++;
+                    } else if (rgb[0] > 175 && rgb[2] < 175) {
+                        b++;
+                        red4++;
+                    }
+
+                }
+            }
+
+            System.out.println("第四区域蓝色个数" + blue4);
+            System.out.println("第四区域红色个数" + red4);
+            System.out.println(".................");
+            System.out.println("蓝色的总个数" + a);
+            System.out.println("红色的总个数" + b);
+        }
+
+    }
+
+    /*  *//**如果截取的图片与上一张不一样就调用此方法
+     * 数每次更新的区域
+     * @param image
+     *//*
+    public void sumActive(String image) {
+
+        int[] rgb = new int[3];
+        File file = new File(image);
+        BufferedImage bi = null;
+        try {
+            bi = ImageIO.read(file);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        for (int h = 4; h < 255; h = h + 21) {
+            for (int w = 816; w < 850; w = w + 21) {
                 int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
                 rgb[0] = (pixel & 0xff0000) >> 16;
                 rgb[1] = (pixel & 0xff00) >> 8;
@@ -152,215 +416,9 @@ public class ImageListener extends FileAlterationListenerAdaptor {
                 }
             }
         }
-        System.out.println("第一区域蓝色个数" + a);
-        System.out.println("第一区域红色个数" + b);
-        System.out.println(".................");
-        /////////////////////////////////////////////////////////////////////////////////
-        //第二区域测试 四个for循环
 
-        int blue2 = 0;
-        int red2 = 0;
-        for (int h = 128; h < 186; h = h + 21) {
-            for (int w = 6; w < 420; w = w + 21) {
-                int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
-                rgb[0] = (pixel & 0xff0000) >> 16;
-                rgb[1] = (pixel & 0xff00) >> 8;
-                rgb[2] = (pixel & 0xff);
-                if (rgb[0] < 200 && rgb[2] > 175) {
-                    blue2++;
-                    a++;
-                } else if (rgb[0] > 175 && rgb[2] < 175) {
-                    b++;
-                    red2++;
-                }
 
-            }
-        }
-
-        for (int h = 128; h < 186; h = h + 21) {
-            for (int w = 16; w < 420; w = w + 21) {
-                int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
-                rgb[0] = (pixel & 0xff0000) >> 16;
-                rgb[1] = (pixel & 0xff00) >> 8;
-                rgb[2] = (pixel & 0xff);
-                if (rgb[0] < 200 && rgb[2] > 175) {
-                    blue2++;
-                    a++;
-                } else if (rgb[0] > 175 && rgb[2] < 175) {
-                    b++;
-                    red2++;
-                }
-
-            }
-        }
-
-        for (int h = 138; h < 186; h = h + 21) {
-            for (int w = 6; w < 420; w = w + 21) {
-                int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
-                rgb[0] = (pixel & 0xff0000) >> 16;
-                rgb[1] = (pixel & 0xff00) >> 8;
-                rgb[2] = (pixel & 0xff);
-                if (rgb[0] < 200 && rgb[2] > 175) {
-                    a++;
-                    blue2++;
-                } else if (rgb[0] > 175 && rgb[2] < 175) {
-                    b++;
-                    red2++;
-                }
-
-            }
-        }
-
-        for (int h = 138; h < 186; h = h + 21) {
-            for (int w = 16; w < 420; w = w + 21) {
-                int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
-                rgb[0] = (pixel & 0xff0000) >> 16;
-                rgb[1] = (pixel & 0xff00) >> 8;
-                rgb[2] = (pixel & 0xff);
-                if (rgb[0] < 200 && rgb[2] > 175) {
-                    a++;
-                    blue2++;
-                } else if (rgb[0] > 175 && rgb[2] < 175) {
-                    b++;
-                    red2++;
-
-                }
-
-            }
-        }
-        System.out.println("第二区域蓝色个数" + blue2);
-        System.out.println("第二区域红色个数" + red2);
-        System.out.println(".................");
-
-        ////////////////////////////////////////////////////////////////////////////////////
-
-        // 第三区域 两次width 位置起点不同 间距一样的for循环 为了解决间隔是小数的问题
-        int blue3 = 0;
-        int red3 = 0;
-        for (int h = 194; h < 255; h = h + 10) {
-            for (int w = 6; w < 420; w = w + 21) {
-                int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
-                rgb[0] = (pixel & 0xff0000) >> 16;
-                rgb[1] = (pixel & 0xff00) >> 8;
-                rgb[2] = (pixel & 0xff);
-
-                if (rgb[0] < 175 && rgb[2] > 175) {
-                    a++;
-                    blue3++;
-                } else if (rgb[0] > 175 && rgb[2] < 175) {
-                    b++;
-                    red3++;
-                }
-
-            }
-        }
-        for (int h = 194; h < 255; h = h + 10) {
-            for (int w = 16; w < 420; w = w + 21) {
-                int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
-                rgb[0] = (pixel & 0xff0000) >> 16;
-                rgb[1] = (pixel & 0xff00) >> 8;
-                rgb[2] = (pixel & 0xff);
-                if (rgb[0] < 175 && rgb[2] > 175) {
-                    a++;
-                    blue3++;
-                } else if (rgb[0] > 175 && rgb[2] < 175) {
-                    b++;
-                    red3++;
-                }
-
-            }
-        }
-
-        System.out.println("第三区域蓝色个数" + blue3);
-        System.out.println("第三区域红色个数" + red3);
-        System.out.println(".................");
-        /////////////////////////////////////////////////////////////////////////////////////
-        //第四区域
-
-        int blue4 = 0;
-        int red4 = 0;
-
-        for (int h = 194; h < 255; h = h + 21) {
-            for (int w = 425; w < 570; w = w + 21) {
-                int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
-                rgb[0] = (pixel & 0xff0000) >> 16;
-                rgb[1] = (pixel & 0xff00) >> 8;
-                rgb[2] = (pixel & 0xff);
-                if (rgb[0] < 200 && rgb[2] > 175) {
-                    a++;
-                    blue4++;
-                } else if (rgb[0] > 175 && rgb[2] < 175) {
-                    b++;
-                    red4++;
-                }
-
-            }
-        }
-
-        for (int h = 194; h < 255; h = h + 21) {
-            for (int w = 435; w < 570; w = w + 21) {
-                int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
-                rgb[0] = (pixel & 0xff0000) >> 16;
-                rgb[1] = (pixel & 0xff00) >> 8;
-                rgb[2] = (pixel & 0xff);
-                if (rgb[0] < 200 && rgb[2] > 175) {
-                    a++;
-                    blue4++;
-                } else if (rgb[0] > 175 && rgb[2] < 175) {
-
-                    b++;
-                    red4++;
-                }
-
-            }
-        }
-
-        for (int h = 204; h < 255; h = h + 21) {
-            for (int w = 425; w < 570; w = w + 21) {
-                int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
-                rgb[0] = (pixel & 0xff0000) >> 16;
-                rgb[1] = (pixel & 0xff00) >> 8;
-                rgb[2] = (pixel & 0xff);
-
-                if (rgb[0] < 200 && rgb[2] > 175) {
-                    a++;
-                    blue4++;
-                } else if (rgb[0] > 175 && rgb[2] < 175) {
-                    b++;
-                    red4++;
-                }
-
-            }
-        }
-
-        for (int h = 204; h < 255; h = h + 21) {
-            for (int w = 435; w < 570; w = w + 21) {
-                int pixel = bi.getRGB(w, h); // 下面三行代码将一个数字转换为RGB数字
-                rgb[0] = (pixel & 0xff0000) >> 16;
-                rgb[1] = (pixel & 0xff00) >> 8;
-                rgb[2] = (pixel & 0xff);
-
-                if (rgb[0] < 200 && rgb[2] > 175) {
-                    a++;
-                    blue4++;
-                } else if (rgb[0] > 175 && rgb[2] < 175) {
-                    b++;
-                    red4++;
-                }
-
-            }
-        }
-
-        System.out.println("第四区域蓝色个数" + blue4);
-        System.out.println("第四区域红色个数" + red4);
-        System.out.println(".................");
-        System.out.println("蓝色的总个数" + a);
-        System.out.println("红色的总个数" + b);
-    }
-
-    public void forTest() {
-
-    }
+    }*/
 
     /**
      * 返回屏幕色彩值
@@ -382,6 +440,7 @@ public class ImageListener extends FileAlterationListenerAdaptor {
     }
 
     public static void listenStart() {
+        System.setProperty("java.awt.headless", "false");
         File dir = new File("E://screenShot");
         FileAlterationMonitor monitor = new FileAlterationMonitor();
         IOFileFilter filter = FileFilterUtils.or(FileFilterUtils.directoryFileFilter(), FileFilterUtils.fileFileFilter());

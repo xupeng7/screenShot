@@ -15,6 +15,9 @@ import java.util.Date;
 @EnableScheduling
 public class ScreenShot2 {
 
+    //文件名是有规则的数字命名 方便找到上一个文件来做比较
+    public static int longName=10000000;
+
     /**
      * 截图
      *
@@ -35,7 +38,10 @@ public class ScreenShot2 {
         }
 
         // 指定屏幕区域，参数x y表示起点(左上角定位坐标) w h表示要截取的图片的宽跟高
-        BufferedImage subimage = image.getSubimage(0, 0, 845, 255);
+        //todo 赌博网址的图片截取坐标暂时如下
+        //BufferedImage subimage = image.getSubimage(386, 691, 685, 204);
+
+        BufferedImage subimage = image.getSubimage(0, 0, 500, 500);
         ImageIO.write(subimage, "png", screenFile);
 
     }
@@ -44,9 +50,9 @@ public class ScreenShot2 {
     public void start() throws Exception {
         //设置为false 不使用headless模式
         System.setProperty("java.awt.headless","false");
-        Date now = new Date();
-        SimpleDateFormat sdfName = new SimpleDateFormat("yyyyMMddHHmmss");
-        String name = sdfName.format(now);
+        //文件名是有规则的数字命名 方便找到上一个文件来做比较
+        String name = String.valueOf(longName);
+        longName=longName+5;
         System.out.println(name);
         captureScreen("E:" + File.separator + "screenShot" + File.separator, name + ".png");
     }
